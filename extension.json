@@ -1,0 +1,23 @@
+{
+  "id": "nolviko/captcha",
+  "name": "CAPTCHA",
+  "version": "1.0.0",
+  "api": 1,
+  "engine": "^1.4",
+  "php": "~8.2.35 || ~8.3.36 || ~8.4.27 || ~8.5.12",
+  "license": "Apache-2.0",
+  "providers": [
+    "src/Provider.php"
+  ],
+  "permissions": [
+    "nolviko.captcha.manage"
+  ],
+  "routes": [
+    "nolviko.captcha.admin"
+  ],
+  "translations": [
+    "en",
+    "tr"
+  ],
+  "repository": "Nolviko/extension-captcha"
+}
