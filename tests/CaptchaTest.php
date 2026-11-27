@@ -87,8 +87,36 @@ final class CaptchaTest extends TestCase
         }
     }
 
-    private function challenge(array $settings, ?string $secret, string $body, int $status = 200): CaptchaChallenge
+    /** RC1 acceptance (2026-11-27): an unreachable service, a reused answer or a wrong secret never lets anyone in. */
+    public function testTimeoutsReusedAnswersAndKeyErrorsAreRefused(): void
     {
+        $token = ['cf-turnstile-response' => 't'];
+        $timeout = $this->challenge([], 's', '', 200, static function (): array {
+            throw new \RuntimeException('timed out');
+        });
+
+        self::assertFalse($timeout->passes($token), 'a timeout is a refusal');
+        self::assertFalse($this->challenge([], 's', '{"success":false,"error-codes":["timeout-or-duplicate"]}')
+            ->passes($token), 'an answer used twice');
+        self::assertFalse($this->challenge([], 'wrong', '{"success":false,"error-codes":["invalid-input-secret"]}')
+            ->passes($token), 'a wrong secret key');
+        self::assertFalse($this->challenge([], 's', '{"success":true}', 503)->passes($token), 'a service error');
+        self::assertFalse($this->challenge([], 's', '{"success":"yes"}')->passes($token), 'only true counts');
+
+        $this->posts = [];
+        $missing = $this->challenge([], null, '{"success":true}');
+        self::assertSame('q', $missing->present()['id'], 'without a secret the built-in challenge stays');
+        self::assertFalse($missing->passes($token));
+        self::assertSame([], $this->posts, 'and nothing is sent');
+    }
+
+    private function challenge(
+        array $settings,
+        ?string $secret,
+        string $body,
+        int $status = 200,
+        ?\Closure $post = null,
+    ): CaptchaChallenge {
         $builtIn = new class implements RegistrationChallenge {
             public function present(): ?array
             {
@@ -107,7 +135,7 @@ final class CaptchaTest extends TestCase
             $secret,
             $builtIn,
             'N',
-            function (string $url, array $fields) use ($body, $status): array {
+            $post ?? function (string $url, array $fields) use ($body, $status): array {
                 $this->posts[] = [$url, $fields];
 
                 return [$status, $body];
